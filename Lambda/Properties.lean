@@ -80,3 +80,38 @@ lemma open₀_injective {x : ℕ} {N M : Λ'} :
     (x ♯ N) → (x ♯ M) → (N ↑ x = M ↑ x) → N = M := by
   intro hn hm h
   rw [← @close_open_var x N hn, ← @close_open_var x M hm, h]
+
+lemma open_unshift {c d k x : ℕ} (N : Λ') :
+    (N{k ⇒ x}).unshift c d = (N.unshift c d){k ⇒ (fvar x).unshift c d} := by
+  induction N generalizing k x
+  all_goals repeat (first | simp_all | split_ifs | omega)
+
+section RenameProperties
+
+variable {N : Λ'} (π : ℕ → ℕ) (x : ℕ)
+
+@[simp]
+lemma rename_open_var {k : ℕ}:
+    (N{k ⇒ x}).rename π = (N.rename π){k ⇒ π x} := by
+  induction N generalizing k
+  all_goals repeat (first | simp_all | split)
+
+@[simp]
+lemma rename_id_eq : N.rename id = N := by
+  induction N
+  all_goals simp_all
+
+@[simp]
+def ρ (y : ℕ) := if x = y then x else π y
+
+@[simp]
+lemma rename_nfv_var : (x ∉ fv N) → (N.rename (ρ π x)) = (N.rename π) := by
+  intro hx
+  induction N
+  all_goals simp_all
+
+lemma rename_nfv_open_var :
+    (x ∉ fv N) → (N ↑ x).rename (ρ π x) = (N.rename (ρ π x)) ↑ x := by
+  simp_all
+
+end RenameProperties

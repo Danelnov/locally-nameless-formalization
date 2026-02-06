@@ -98,6 +98,14 @@ def unshift (N : Λ') (c d : ℕ) : Λ' :=
   | bvar n => °n
   | fvar x => if x < c then x else x - d
   | app N₁ N₂ => (N₁.unshift c d).app (N₂.unshift c d)
-  | abs N => λ (N.unshift (c + 1) d)
+  | abs N => λ (N.unshift c d)
+
+@[simp]
+def rename (N : Λ') (π : ℕ → ℕ) :=
+  match N with
+  | bvar n => °n
+  | fvar x => fvar $ π x
+  | app N₁ N₂ => (N₁.rename π).app (N₂.rename π)
+  | abs N => λ (N.rename π)
 
 end Lambda

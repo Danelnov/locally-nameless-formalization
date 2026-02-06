@@ -15,6 +15,9 @@ def body (N : Λ') : Prop := ∃ L : Finset ℕ, ∀ x ∉ L, Lc (N ↑ x)
 
 namespace Lc
 
+lemma not_lc_bvar (n : ℕ) : ¬ Lc (°n) := by
+  intro h; cases h
+
 lemma lc_abs_iff_body (N : Λ') : Lc (λ N) ↔ body N := by
   constructor <;> simp_all
   . intro h
@@ -50,6 +53,39 @@ lemma subst_open_var {x y : ℕ} {N M : Λ'} :
   simp; rw [subst_open]
   aesop; assumption
 
+section UnshiftProperties
+
+variable (L : Finset ℕ) (c d : ℕ)
+@[simp]
+private def unshift_nat (x : ℕ) := if x < c then x else x - d
+
+private lemma exists_unshift_preimage_of_not_mem : ∃ S : Finset ℕ, ∀ y ∉ S, ∃ x ∉ L, y = unshift_nat c d x := by
+  exists (L.image (unshift_nat c d .)) ∪ (Finset.Ico c (c + d))
+  intro y hy
+  simp at hy
+  cases hy
+  expose_names
+  . by_cases h_lt : y < c
+    -- y < c
+    . exists y
+      constructor
+      -- y ∉ L
+      . intro y_in_L
+        apply left y y_in_L
+        simp; intro; omega
+      . simp; intro; omega
+    -- y >= c
+    . exists (y + d)
+      have yd_lt : ¬ (y + d < c) := by omega
+      constructor
+      -- y - d ∉ L
+      . intro yd_in_L
+        apply left (y + d) yd_in_L
+        simp; intro; omega
+      . simp; intro; omega
+
+end UnshiftProperties
+
 section LcConservation
 
 variable {M N : Λ'}
@@ -71,6 +107,7 @@ lemma subst_lc {x : ℕ} : Lc M → Lc N → Lc (M[x := N]) := by
   | lc_app =>
     simp; apply lc_app <;> aesop
   | lc_abs M L h ih =>
+    simp
     simp [lc_abs_iff_body]
     use L ∪ {x}
     intro y hy
@@ -112,5 +149,79 @@ lemma abs_lc : Lc M → Lc (λ (M ↓ 0)) := by
   use {1}
   aesop
 
+lemma lc_unshift {c d : ℕ} {M : Λ'} : Lc M → Lc (unshift M c d) := by
+  intro hm
+  induction hm with
+  | lc_var =>
+    simp; split_ifs <;> exact lc_var
+  | lc_app => simp; apply lc_app <;> aesop
+  | lc_abs N L h ih =>
+    simp [lc_abs_iff_body]
+    simp_all
+    have ⟨S, hs⟩ := exists_unshift_preimage_of_not_mem L c d
+    use S
+    intro y hy
+    have ⟨x, ⟨xinnotL, yeq⟩⟩ := hs y hy
+    have h : fvar y = (unshift (fvar x) c d) := by
+      repeat (first | simp_all | split)
+    have := ih x xinnotL
+    rw [open_unshift, ← h] at this
+    assumption
+
+lemma lc_rename:
+    Lc M ↔ ∀ π : ℕ → ℕ, Lc (M.rename π) := by
+  constructor
+  . intro hm π
+    induction hm generalizing π with
+    | lc_var => simp; constructor
+    | lc_app => simp; constructor <;> aesop
+    | lc_abs M L h ih =>
+      simp [lc_abs_iff_body]
+      use L ∪ M.fv
+      intro x hx
+      simp at hx
+      have := ih x hx.1 (ρ π x)
+      simp_all
+  . intro h
+    have := h id
+    simp_all
+
 end LcConservation
+
+@[simp]
+private def σ (x y : ℕ) (z : ℕ) : ℕ :=
+  if z = x then y
+  else if z = y then x
+  else z
+
+@[simp]
+private lemma sigma_rename_lema {x y : ℕ} {N : Λ'} :
+    y ∉ fv N → x ∉ fv N → N.rename (σ x y) = N := by
+  intro hy hx
+  induction N
+  all_goals repeat (first | simp_all | split | omega)
+
+lemma lc_abs_iff_exists_nfv_open_var {N : Λ'} : Lc (λ N) ↔ ∃ x ∉ fv N, Lc (N ↑ x) := by
+  constructor
+  . intro h
+    cases h
+    expose_names
+    have ⟨x, hx⟩ := Infinite.exists_notMem_finset (L ∪ (fv N))
+    simp at hx
+    use x
+    constructor
+    . exact hx.2
+    . exact h x hx.1
+  . rintro ⟨x, ⟨xnfv, h⟩⟩
+    simp [lc_abs_iff_body]
+    use (N.fv ∪ {x})
+    rintro y hy
+    simp at hy
+    rw [lc_rename] at h
+    have := h (σ x y)
+    simp_all
+
+
+
+
 end Lc
